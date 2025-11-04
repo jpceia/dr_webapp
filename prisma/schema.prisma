@@ -1,0 +1,213 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["diario_republica", "public"]
+}
+
+model announcements {
+  id                                   Int                      @id
+  publication_date                     DateTime?                @db.Date
+  created_at                           DateTime?                @db.Timestamp(6)
+  updated_at                           DateTime?                @db.Timestamp(6)
+  application_deadline                 DateTime?                @db.Date
+  issuer                               String?
+  number                               String?
+  pdf_url                              String?
+  summary                              String?
+  aviso_modelo                         String?
+  aviso_data_envio                     DateTime?                @db.Date
+  processo_tipo                        String?
+  processo_preco_base_existe           Boolean?
+  processo_preco_base_valor            Decimal?
+  has_lots                             Boolean?
+  processo_max_lotes_autorizado        Int?
+  processo_max_lotes_concorrente       Int?
+  object_internal_ref                  String?
+  object_designation                   String?
+  object_description                   String?
+  object_main_contract_type            String?
+  object_contract_type                 String?
+  object_main_cpv                      String?
+  base_price                           Decimal?
+  object_options                       String?
+  has_bid_base_price                   Boolean?
+  object_type_of_goods                 String?
+  applicable_legislation               String?
+  asset_valuation                      Decimal?
+  object_options_description           String?
+  expired                              Boolean?
+  // Entity fields (denormalized from entities table)
+  entity_designacao                    String?
+  entity_nipc                          Float?
+  entity_servico_contacto              String?
+  entity_endereco                      String?
+  entity_codigo_postal                 String?
+  entity_localidade                    String?
+  entity_pais                          String?
+  entity_nut_iii                       String?
+  entity_distrito                      String?
+  entity_concelho                      String?
+  entity_freguesia                     String?
+  entity_telefone                      String?
+  entity_fax                           String?
+  entity_url                           String?
+  entity_email                         String?
+  entity_edelivery_gateway_url         String?
+  entity_funcao_organizacao            String?
+  entity_norma_juridica                String?
+  entity_area_atividade                String?
+  entity_subfuncao_organizacao         String?
+  // Additional fields
+  in_ue_journal                        Boolean?
+  application_platform                 String?
+  application_url                      String?
+  entries_platform                     String?
+  entries_url                          String?
+  execution_deadline                   String?
+  execution_renewal                    Boolean?
+  execution_max_renewals               Float?
+  different_renewal_execution_deadline Boolean?
+  collateral                           Boolean?
+  collateral_percentage                String?
+  collateral_value                     String?
+  collateral_description               String?
+  execution_start_date                 DateTime?                @db.Date
+  execution_end_date                   DateTime?                @db.Date
+  renewal_execution_deadline           String?
+  internal_id                          Int?
+  author_name                          String?
+  author_role                          String?
+  adjudication_factors                 adjudication_factors[]
+  cpvs                                 cpvs[]
+
+  @@index([publication_date], map: "idx_announcements_publication_date")
+  @@index([entity_distrito], map: "idx_announcements_entity_distrito")
+  @@map("announcements")
+  @@schema("diario_republica")
+}
+
+model adjudication_factors {
+  announcement_id      Int
+  multifactor          Boolean?
+  factor_name          String
+  other_factor_name    String?
+  factor_percentage    Float?
+  subfactors           Boolean?
+  subfactor_name       String?
+  subfactor_percentage Float?
+  announcements        announcements @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([announcement_id, factor_name])
+  @@index([announcement_id], map: "idx_adjudication_factors_announcement_id")
+  @@schema("diario_republica")
+}
+
+model announcement_locations {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcement_id Int
+  location_id     String    @db.Uuid
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  locations       locations @relation(fields: [location_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([announcement_id, location_id])
+  @@schema("diario_republica")
+}
+
+model cpvs {
+  announcement_id Int
+  code            String        @db.VarChar(64)
+  main            Boolean?      @default(false)
+  base_price      Decimal?      @db.Decimal(15, 2)
+  announcements   announcements @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([announcement_id, code])
+  @@index([announcement_id], map: "idx_cpvs_announcement_id")
+  @@schema("diario_republica")
+}
+
+model diarios {
+  id               Int       @id
+  publication_date DateTime  @db.Date
+  number           String?   @db.VarChar(16)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  pdf_url          String
+
+  @@schema("diario_republica")
+}
+
+model entities {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nipc                   String?   @db.VarChar(32)
+  designacao             String?   @db.VarChar(512)
+  endereco               String?
+  localidade             String?   @db.VarChar(255)
+  codigo_postal          String?   @db.VarChar(32)
+  pais                   String?   @default("Portugal") @db.VarChar(128)
+  distrito               String?   @db.VarChar(128)
+  concelho               String?   @db.VarChar(128)
+  freguesia              String?   @db.VarChar(128)
+  nut_iii                String?   @db.VarChar(64)
+  telefone               String?   @db.VarChar(64)
+  fax                    String?   @db.VarChar(64)
+  email                  String?   @db.VarChar(256)
+  url                    String?
+  edelivery_gateway_url  String?
+  servico_orgao_contacto String?
+  norma_juridica         String?
+  funcao_organizacao     String?   @db.VarChar(256)
+  subfuncao_organizacao  String?
+  area_atividade         String?
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+  updated_at             DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([nipc, designacao, localidade, codigo_postal, telefone], map: "entities_unique_key")
+  @@index([designacao], map: "idx_entities_designacao")
+  @@index([nipc], map: "idx_entities_nipc")
+  @@schema("diario_republica")
+}
+
+model locations {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pais                   String                   @db.VarChar(100)
+  distrito               String?                  @db.VarChar(100)
+  concelho               String?                  @db.VarChar(100)
+  freguesia              String?                  @db.VarChar(100)
+  codigo_postal          String?                  @db.VarChar(20)
+  nuts_code              String?                  @db.VarChar(20)
+  localidade             String?                  @db.VarChar(255)
+  morada                 String?
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  announcement_locations announcement_locations[]
+
+  @@unique([pais, distrito, concelho, freguesia, codigo_postal, localidade])
+  @@schema("diario_republica")
+}
+
+model lots {
+  announcement_id Int
+  lot             String   @db.VarChar(64)
+  description     String?
+  base_price      Decimal? @db.Decimal(15, 2)
+
+  @@id([announcement_id, lot])
+  @@index([announcement_id], map: "idx_lots_announcement_id")
+  @@schema("diario_republica")
+}
+
+model lots_cpvs {
+  announcement_id Int
+  lot             String   @db.VarChar(64)
+  code            String   @db.VarChar(64)
+  base_price      Decimal? @db.Decimal(15, 2)
+  main            Boolean? @default(true)
+
+  @@id([announcement_id, lot, code])
+  @@index([announcement_id], map: "idx_lots_cpvs_announcement_id")
+  @@schema("diario_republica")
+}
