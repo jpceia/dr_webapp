@@ -21,10 +21,11 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { formatPrice, formatDate } from "@/lib/format-utils"
+import { BASE_URL } from "@/lib/constants"
 
 async function getAnnouncement(id: string) {
   try {
-    const response = await fetch(`/api/procurements/${id}`, {
+    const response = await fetch(`${BASE_URL}/api/procurements/${id}`, {
       cache: 'no-store'
     })
     if (!response.ok) return null
@@ -37,7 +38,7 @@ async function getAnnouncement(id: string) {
 
 async function getAdjudicationFactors(id: string) {
   try {
-    const response = await fetch(`/api/procurements/${id}/adjudication-factors`, {
+    const response = await fetch(`${BASE_URL}/api/procurements/${id}/adjudication-factors`, {
       cache: 'no-store'
     })
     if (!response.ok) return []
