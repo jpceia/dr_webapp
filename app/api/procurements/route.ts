@@ -261,6 +261,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filter out old announcement versions based on alterations table
+    // Exclude announcements whose internal_id appears in previous_internal_id
+    const oldVersionIds = await prisma.$queryRaw<Array<{ previous_internal_id: number }>>`
+      SELECT DISTINCT previous_internal_id 
+      FROM diario_republica.alterations 
+      WHERE previous_internal_id IS NOT NULL
+    `
+    
+    if (oldVersionIds.length > 0) {
+      const excludeInternalIds = oldVersionIds.map(item => item.previous_internal_id)
+      where.AND = where.AND || []
+      where.AND.push({
+        OR: [
+          { internal_id: null },
+          { internal_id: { notIn: excludeInternalIds } }
+        ]
+      })
+    }
+
     // Build orderBy - sort in database for efficiency
     // Ensure nulls are always last regardless of sort direction
     let orderBy: any[] = []
