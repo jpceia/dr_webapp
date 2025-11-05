@@ -73,6 +73,7 @@ async function fetchProcurementData(
   minDate = '',
   maxDate = '',
   cpv = 'all',
+  entity = '',
   criteria = 'outros',
   contractType = 'all'
 ) {
@@ -102,6 +103,9 @@ async function fetchProcurementData(
     }
     if (cpv !== 'all') {
       params.append('cpv', cpv)
+    }
+    if (entity !== '') {
+      params.append('entity', entity)
     }
     if (criteria !== 'outros') {
       params.append('criteria', criteria)
@@ -253,6 +257,8 @@ export default function HomePage() {
   const [cpvCodes, setCpvCodes] = useState<string[]>([])
   const [selectedCpv, setSelectedCpv] = useState<string>("all")
   const [activeCpv, setActiveCpv] = useState<string>("all")
+  const [selectedEntity, setSelectedEntity] = useState<string>("")
+  const [activeEntity, setActiveEntity] = useState<string>("")
   const [selectedCriteria, setSelectedCriteria] = useState<string>("outros")
   const [activeCriteria, setActiveCriteria] = useState<string>("outros")
   const [contractTypes, setContractTypes] = useState<string[]>([])
@@ -290,6 +296,7 @@ export default function HomePage() {
         activeMinDate,
         activeMaxDate,
         activeCpv,
+        activeEntity,
         activeCriteria,
         activeContractType
       )
@@ -302,7 +309,7 @@ export default function HomePage() {
     }
     
     loadInitialData()
-  }, [activeSearchTerm, activeDistrict, activeSortOrder, activeShowExpired, activeShowNA, activeMinPrice, activeMaxPrice, activeMinDate, activeMaxDate, activeCpv, activeCriteria, activeContractType])
+  }, [activeSearchTerm, activeDistrict, activeSortOrder, activeShowExpired, activeShowNA, activeMinPrice, activeMaxPrice, activeMinDate, activeMaxDate, activeCpv, activeEntity, activeCriteria, activeContractType])
 
   // Fetch ALL available CPV codes (not filtered by current data)
   useEffect(() => {
@@ -387,6 +394,7 @@ export default function HomePage() {
       activeMinDate,
       activeMaxDate,
       activeCpv,
+      activeEntity,
       activeCriteria,
       activeContractType
     )
@@ -413,6 +421,7 @@ export default function HomePage() {
     setActiveMinDate(minDate)
     setActiveMaxDate(maxDate)
     setActiveCpv(selectedCpv)
+    setActiveEntity(selectedEntity)
     setActiveCriteria(selectedCriteria)
     setActiveContractType(selectedContractType)
   }
@@ -536,6 +545,21 @@ export default function HomePage() {
 
           {/* CPV, Adjudication Criteria, and Contract Type Filters */}
           <div className="flex items-center gap-4">
+            {/* Entity Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap text-slate-700">
+                Entidade:
+              </label>
+              <Input
+                type="text"
+                placeholder="ex: Câmara Municipal"
+                value={selectedEntity}
+                onChange={(e) => setSelectedEntity(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="w-[200px] h-9 bg-white border-slate-300"
+              />
+            </div>
+
             {/* CPV Filter */}
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium whitespace-nowrap text-slate-700">
