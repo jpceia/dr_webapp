@@ -239,24 +239,20 @@ export default function HomePage() {
   const [maxPrice, setMaxPrice] = useState<string>("")
   const [activeMaxPrice, setActiveMaxPrice] = useState<string>("")
   
-  // Set default date range: 2024-01-01 to today
+  // Set default date range: today - 7 days to today
   const today = new Date().toISOString().split('T')[0]
-  const [minDate, setMinDate] = useState<string>("2024-01-01")
-  const [activeMinDate, setActiveMinDate] = useState<string>("2024-01-01")
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [minDate, setMinDate] = useState<string>(sevenDaysAgo)
+  const [activeMinDate, setActiveMinDate] = useState<string>(sevenDaysAgo)
   const [maxDate, setMaxDate] = useState<string>(today)
   const [activeMaxDate, setActiveMaxDate] = useState<string>(today)
-  const [minDateDisplay, setMinDateDisplay] = useState<string>("01/01/2024")
-  const [maxDateDisplay, setMaxDateDisplay] = useState<string>(() => {
-    const [year, month, day] = today.split('-')
-    return `${day}/${month}/${year}`
-  })
   
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [hasMoreData, setHasMoreData] = useState<boolean>(true)
   const [updatingExpired, setUpdatingExpired] = useState<boolean>(false)
   const [cpvCodes, setCpvCodes] = useState<string[]>([])
-  const [selectedCpv, setSelectedCpv] = useState<string>("all")
-  const [activeCpv, setActiveCpv] = useState<string>("all")
+  const [selectedCpv, setSelectedCpv] = useState<string>("72000000")
+  const [activeCpv, setActiveCpv] = useState<string>("72000000")
   const [selectedEntity, setSelectedEntity] = useState<string>("")
   const [activeEntity, setActiveEntity] = useState<string>("")
   const [selectedCriteria, setSelectedCriteria] = useState<string>("outros")
@@ -567,7 +563,7 @@ export default function HomePage() {
               </label>
               <Input
                 type="text"
-                placeholder="ex: 33140000"
+                placeholder="ex: 72000000"
                 value={selectedCpv === "all" ? "" : selectedCpv}
                 onChange={(e) => {
                   const value = e.target.value.trim()
@@ -687,7 +683,6 @@ export default function HomePage() {
                 value={minDate}
                 onChange={(e) => {
                   setMinDate(e.target.value)
-                  setMinDateDisplay(formatDateForDisplay(e.target.value))
                 }}
                 className="w-40 h-9 bg-white border-slate-300"
               />
@@ -697,19 +692,16 @@ export default function HomePage() {
                 value={maxDate}
                 onChange={(e) => {
                   setMaxDate(e.target.value)
-                  setMaxDateDisplay(formatDateForDisplay(e.target.value))
                 }}
                 className="w-40 h-9 bg-white border-slate-300"
               />
-              {(minDate !== "2024-01-01" || maxDate !== today) && (
+              {(minDate !== sevenDaysAgo || maxDate !== today) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setMinDate("2024-01-01")
+                    setMinDate(sevenDaysAgo)
                     setMaxDate(today)
-                    setMinDateDisplay(formatDateForDisplay("2024-01-01"))
-                    setMaxDateDisplay(formatDateForDisplay(today))
                   }}
                   className="h-9 px-3 cursor-pointer border border-slate-300 hover:bg-slate-100"
                 >
