@@ -207,13 +207,24 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // CPV filtering - join with cpvs table to filter announcements by CPV code
+    // CPV filtering - join with cpvs table to filter announcements by CPV codes
     if (cpv && cpv !== 'all') {
-      // Get announcement IDs that have this CPV code
+      // Determine the search pattern based on trailing zeros
+      // If CPV has two or more consecutive zeros at the end, search for child codes
+      let searchPattern = cpv
+      
+      // Find the position where trailing zeros start (at least 2 consecutive zeros)
+      const match = cpv.match(/^(\d*?)(00+)$/)
+      if (match && match[2].length >= 2) {
+        // Use the non-zero prefix for pattern matching
+        searchPattern = match[1] + '%'
+      }
+      
+      // Get announcement IDs that have this CPV code or a child CPV code
       const announcementsWithCpv = await prisma.$queryRaw<Array<{ announcement_id: number }>>`
         SELECT DISTINCT announcement_id 
         FROM diario_republica.cpvs 
-        WHERE code = ${cpv}
+        WHERE code ILIKE ${searchPattern}
       `
       
       const announcementIds = announcementsWithCpv.map(item => item.announcement_id)
