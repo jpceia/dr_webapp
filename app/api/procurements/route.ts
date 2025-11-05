@@ -43,8 +43,8 @@ function convertStringToDate(dateString: string | null): Date | null {
 // Convert announcement record to response format
 async function convertAnnouncementToResponse(announcement: any) {
   // Fetch CPV codes for this announcement
-  const cpvs = await prisma.$queryRaw<Array<{ code: string }>>`
-    SELECT code 
+  const cpvs = await prisma.$queryRaw<Array<{ code: string, base_price: any }>>`
+    SELECT code, base_price
     FROM diario_republica.cpvs 
     WHERE announcement_id = ${parseInt(announcement.id)}
     ORDER BY code
@@ -71,12 +71,22 @@ async function convertAnnouncementToResponse(announcement: any) {
     }
   }
   
+  // Determine base_price: use announcement.base_price if available, otherwise get from cpvs table
+  let basePrice = announcement.base_price ? Number(announcement.base_price) : null
+  if (!basePrice && cpvs.length > 0) {
+    // Try to get base_price from the first CPV entry that has one
+    const cpvWithPrice = cpvs.find(cpv => cpv.base_price != null)
+    if (cpvWithPrice) {
+      basePrice = Number(cpvWithPrice.base_price)
+    }
+  }
+  
   return {
     ...announcement,
     id: announcement.id,
     publication_date: announcement.publication_date,
     application_deadline: announcement.application_deadline,
-    base_price: announcement.base_price ? Number(announcement.base_price) : null,
+    base_price: basePrice,
     processo_preco_base_valor: announcement.processo_preco_base_valor ? Number(announcement.processo_preco_base_valor) : null,
     asset_valuation: announcement.asset_valuation ? Number(announcement.asset_valuation) : null,
     cpv_codes: cpvs.map(cpv => cpv.code),
