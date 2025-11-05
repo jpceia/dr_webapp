@@ -110,6 +110,7 @@ export async function GET(request: NextRequest) {
     const minDate = searchParams.get('minDate')
     const maxDate = searchParams.get('maxDate')
     const cpv = searchParams.get('cpv')
+    const entity = searchParams.get('entity')
     const criteria = searchParams.get('criteria')
     const contractType = searchParams.get('contractType')
     const offset = (page - 1) * limit
@@ -117,18 +118,20 @@ export async function GET(request: NextRequest) {
     let where: any = {}
 
     if (search) {
-      where.summary = { contains: search, mode: 'insensitive' }
+      where.AND = where.AND || []
+      where.AND.push({ summary: { contains: search, mode: 'insensitive' } })
+    }
+
+    // Entity filtering - search in entity_designacao field
+    if (entity && entity !== '') {
+      where.AND = where.AND || []
+      where.AND.push({ entity_designacao: { contains: entity, mode: 'insensitive' } })
     }
 
     // District filtering - exact match on entity_distrito field
     if (district && district !== 'all') {
-      if (Object.keys(where).length > 0) {
-        // If there are already filters, add district to AND
-        where.AND = where.AND || []
-        where.AND.push({ entity_distrito: { equals: district, mode: 'insensitive' } })
-      } else {
-        where.entity_distrito = { equals: district, mode: 'insensitive' }
-      }
+      where.AND = where.AND || []
+      where.AND.push({ entity_distrito: { equals: district, mode: 'insensitive' } })
     }
 
     // Price range filtering
