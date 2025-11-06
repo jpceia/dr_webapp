@@ -70,7 +70,21 @@ export async function POST(
       )
     }
 
-    // Upsert archive entry
+    // If unarchiving (isArchived = false), delete the entry
+    if (!isArchived) {
+      await prisma.archive.deleteMany({
+        where: {
+          announcement_id: announcementId
+        }
+      })
+      
+      return NextResponse.json({
+        success: true,
+        isArchived: false
+      })
+    }
+
+    // If archiving (isArchived = true), upsert the entry
     const archiveEntry = await prisma.archive.upsert({
       where: {
         announcement_id: announcementId

@@ -35,6 +35,13 @@ export function ArchiveButton({ announcementId }: ArchiveButtonProps) {
   }, [announcementId])
 
   const handleToggleArchive = async () => {
+    // If already archived, ask for confirmation before removing from archive
+    if (isArchived) {
+      if (!confirm("Tem a certeza que quer remover o Anúncio do arquivo?")) {
+        return
+      }
+    }
+    
     setLoading(true)
     
     try {
