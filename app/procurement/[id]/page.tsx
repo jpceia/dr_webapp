@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ArchiveButton } from "@/components/archive-button"
+import { NotesBox } from "@/components/notes-box"
 import { 
   ArrowLeft, 
   FileText, 
@@ -154,6 +155,9 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Archive Button */}
         <ArchiveButton announcementId={announcement.id} />
+
+        {/* Notes Box */}
+        <NotesBox announcementId={announcement.id} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
