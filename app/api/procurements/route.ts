@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
     const entity = searchParams.get('entity')
     const criteria = searchParams.get('criteria')
     const contractType = searchParams.get('contractType')
+    const showArchived = searchParams.get('showArchived') === 'true'
     const offset = (page - 1) * limit
 
     let where: any = {}
@@ -283,19 +284,190 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Archive filtering - show only archived announcements if showArchived is true
+    if (showArchived) {
+      // Get announcement IDs that are archived with is_archived = true
+      const archivedAnnouncements = await prisma.$queryRaw<Array<{ announcement_id: number }>>`
+        SELECT announcement_id 
+        FROM diario_republica.archive 
+        WHERE is_archived = true
+      `
+      
+      const archivedIds = archivedAnnouncements.map(item => item.announcement_id)
+      
+      if (archivedIds.length > 0) {
+        where.AND = where.AND || []
+        where.AND.push({
+          id: {
+            in: archivedIds
+          }
+        })
+      } else {
+        // If showArchived is true but no archived announcements exist, return empty result
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0
+          }
+        })
+      }
+    }
+
     // Build orderBy - sort in database for efficiency
     // Ensure nulls are always last regardless of sort direction
     let orderBy: any[] = []
     
+    // For price sorting, we need to use raw SQL to properly handle COALESCE between announcements.base_price and cpvs.base_price
     if (priceSortOrder !== 'none') {
-      // Primary sort by price (nulls last)
-      orderBy.push({ base_price: { sort: priceSortOrder, nulls: 'last' } })
-      // Secondary sort by date (nulls last)
-      orderBy.push({ publication_date: { sort: dateSortOrder, nulls: 'last' } })
-    } else {
-      // Sort by date only (nulls last)
-      orderBy.push({ publication_date: { sort: dateSortOrder, nulls: 'last' } })
+      // We'll use raw SQL for price sorting to handle the fallback logic
+      // Get all matching announcement IDs with their computed base_price
+      const sortDirection = priceSortOrder === 'asc' ? 'ASC' : 'DESC'
+      const dateSortDirection = dateSortOrder === 'asc' ? 'ASC' : 'DESC'
+      
+      // Build WHERE clause from the Prisma where object
+      let whereClauses: string[] = []
+      let params: any[] = []
+      let paramIndex = 1
+      
+      // Handle search
+      if (search) {
+        whereClauses.push(`a.summary ILIKE $${paramIndex}`)
+        params.push(`%${search}%`)
+        paramIndex++
+      }
+      
+      // Handle entity filter
+      if (entity && entity !== '') {
+        whereClauses.push(`a.entity_designacao ILIKE $${paramIndex}`)
+        params.push(`%${entity}%`)
+        paramIndex++
+      }
+      
+      // Handle district filter
+      if (district && district !== 'all') {
+        whereClauses.push(`a.entity_distrito ILIKE $${paramIndex}`)
+        params.push(`%${district}%`)
+        paramIndex++
+      }
+      
+      // Handle price range filtering
+      if (minPrice) {
+        whereClauses.push(`(a.base_price >= $${paramIndex} OR (a.base_price IS NULL AND EXISTS (SELECT 1 FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price >= $${paramIndex})))`)
+        params.push(parseFloat(minPrice))
+        paramIndex++
+      }
+      
+      if (maxPrice) {
+        whereClauses.push(`(a.base_price <= $${paramIndex} OR (a.base_price IS NULL AND EXISTS (SELECT 1 FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price <= $${paramIndex})))`)
+        params.push(parseFloat(maxPrice))
+        paramIndex++
+      }
+      
+      // Handle expired filtering
+      if (!includeExpired) {
+        if (includeNA) {
+          whereClauses.push(`(a.expired = false OR a.expired IS NULL)`)
+        } else {
+          whereClauses.push(`a.expired = false`)
+        }
+      } else {
+        whereClauses.push(`a.expired = true`)
+      }
+      
+      // Handle date range filtering
+      if (minDate) {
+        whereClauses.push(`a.publication_date >= $${paramIndex}`)
+        params.push(new Date(minDate))
+        paramIndex++
+      }
+      
+      if (maxDate) {
+        const maxDateObj = new Date(maxDate)
+        maxDateObj.setHours(23, 59, 59, 999)
+        whereClauses.push(`a.publication_date <= $${paramIndex}`)
+        params.push(maxDateObj)
+        paramIndex++
+      }
+      
+      // Handle contract type filtering
+      if (contractType && contractType !== 'all') {
+        whereClauses.push(`a.object_main_contract_type = $${paramIndex}`)
+        params.push(contractType)
+        paramIndex++
+      }
+      
+      // Handle CPV filtering
+      if (cpv && cpv !== 'all') {
+        let searchPattern = cpv
+        const match = cpv.match(/^(\d*?)(00+)$/)
+        if (match && match[2].length >= 2) {
+          searchPattern = match[1] + '%'
+        }
+        whereClauses.push(`EXISTS (SELECT 1 FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.code ILIKE $${paramIndex})`)
+        params.push(searchPattern)
+        paramIndex++
+      }
+      
+      // Handle old versions filtering
+      if (oldVersionIds.length > 0) {
+        const excludeInternalIds = oldVersionIds.map(item => item.previous_internal_id)
+        whereClauses.push(`(a.internal_id IS NULL OR a.internal_id NOT IN (${excludeInternalIds.join(', ')}))`)
+      }
+      
+      const whereSQL = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
+      
+      // Query with COALESCE to get base_price from either announcements or first cpv
+      const querySQL = `
+        SELECT DISTINCT a.*,
+          COALESCE(
+            a.base_price,
+            (SELECT c.base_price FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price IS NOT NULL LIMIT 1)
+          ) as computed_base_price
+        FROM diario_republica.announcements a
+        ${whereSQL}
+        ORDER BY computed_base_price ${sortDirection} NULLS LAST, a.publication_date ${dateSortDirection} NULLS LAST
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `
+      
+      const sortedAnnouncements = await prisma.$queryRawUnsafe<Array<any>>(querySQL, ...params, limit, offset)
+      
+      // Get total count
+      const countSQL = `
+        SELECT COUNT(DISTINCT a.id) as count
+        FROM diario_republica.announcements a
+        ${whereSQL}
+      `
+      
+      const totalResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(countSQL, ...params)
+      
+      const total = Number(totalResult[0].count)
+      
+      // Convert announcement records to response format
+      let convertedData = await Promise.all(sortedAnnouncements.map(announcement => convertAnnouncementToResponse(announcement)))
+      
+      // Client-side filtering for criteria type
+      if (criteria && criteria === 'precos') {
+        convertedData = convertedData.filter(item => 
+          item.criteria_type === 'precos'
+        )
+      }
+      
+      return NextResponse.json({
+        data: convertedData,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      })
     }
+    
+    // For date-only sorting, use Prisma
+    orderBy.push({ publication_date: { sort: dateSortOrder, nulls: 'last' } })
 
     const [announcementRecords, total] = await Promise.all([
       prisma.announcements.findMany({

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { ArchiveButton } from "@/components/archive-button"
 import { 
   ArrowLeft, 
   FileText, 
@@ -50,18 +50,19 @@ async function getAdjudicationFactors(id: string) {
   }
 }
 
-// Group adjudication factors by factor name (factor_name or other_factor_name)
+// Group adjudication factors by factor name and other_factor_name combination
 function groupAdjudicationFactors(factors: any[]) {
   const grouped = new Map<string, any>()
   
   factors.forEach((factor) => {
-    // Use other_factor_name if available, otherwise use factor_name
-    const key = factor.other_factor_name || factor.factor_name
+    // Create a unique key combining both factor_name and other_factor_name
+    const key = `${factor.factor_name || ''}_${factor.other_factor_name || ''}`
     
     if (!grouped.has(key)) {
       // First occurrence of this factor
       grouped.set(key, {
-        factorName: key,
+        factorName: factor.factor_name,
+        otherFactorName: factor.other_factor_name,
         factorPercentage: factor.factor_percentage,
         subfactors: []
       })
@@ -151,6 +152,9 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Archive Button */}
+        <ArchiveButton announcementId={announcement.id} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -268,6 +272,7 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                         <thead>
                           <tr className="bg-muted">
                             <th className="border border-border p-2 text-left">Fator</th>
+                            <th className="border border-border p-2 text-left">Designação</th>
                             <th className="border border-border p-2 text-left">Ponderação</th>
                             <th className="border border-border p-2 text-left">Subfator</th>
                             <th className="border border-border p-2 text-left">Ponderação</th>
@@ -282,6 +287,7 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                               return (
                                 <tr key={factorIndex} className="hover:bg-muted/50">
                                   <td className="border border-border p-2">{factor.factorName || '-'}</td>
+                                  <td className="border border-border p-2">{factor.otherFactorName || '-'}</td>
                                   <td className="border border-border p-2">
                                     {factor.factorPercentage != null ? `${factor.factorPercentage}%` : '-'}
                                   </td>
@@ -301,6 +307,12 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                                       rowSpan={factor.subfactors.length}
                                     >
                                       {factor.factorName || '-'}
+                                    </td>
+                                    <td 
+                                      className="border border-border p-2" 
+                                      rowSpan={factor.subfactors.length}
+                                    >
+                                      {factor.otherFactorName || '-'}
                                     </td>
                                     <td 
                                       className="border border-border p-2" 

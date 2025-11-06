@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Filter, ArrowDown, ArrowUp } from "lucide-react"
+import { Search, Filter, ArrowDown, ArrowUp, LayoutGrid, List, Archive } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -75,7 +75,8 @@ async function fetchProcurementData(
   cpv = 'all',
   entity = '',
   criteria = 'outros',
-  contractType = 'all'
+  contractType = 'all',
+  showArchived = false
 ) {
   try {
     const params = new URLSearchParams({
@@ -86,7 +87,8 @@ async function fetchProcurementData(
       page: page.toString(),
       limit: limit.toString(),
       includeExpired: includeExpired.toString(),
-      includeNA: includeNA.toString()
+      includeNA: includeNA.toString(),
+      showArchived: showArchived.toString()
     })
 
     if (minPrice !== '') {
@@ -260,6 +262,9 @@ export default function HomePage() {
   const [contractTypes, setContractTypes] = useState<string[]>([])
   const [selectedContractType, setSelectedContractType] = useState<string>("all")
   const [activeContractType, setActiveContractType] = useState<string>("all")
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showArchived, setShowArchived] = useState<boolean>(false)
+  const [activeShowArchived, setActiveShowArchived] = useState<boolean>(false)
 
   // Client-side filtering is minimal - most filtering is handled by the API
   // We just return all data since filtering is done at database level
@@ -294,7 +299,8 @@ export default function HomePage() {
         activeCpv,
         activeEntity,
         activeCriteria,
-        activeContractType
+        activeContractType,
+        activeShowArchived
       )
       
       setData(response.data)
@@ -305,7 +311,7 @@ export default function HomePage() {
     }
     
     loadInitialData()
-  }, [activeSearchTerm, activeDistrict, activeSortOrder, activeShowExpired, activeShowNA, activeMinPrice, activeMaxPrice, activeMinDate, activeMaxDate, activeCpv, activeEntity, activeCriteria, activeContractType])
+  }, [activeSearchTerm, activeDistrict, activeSortOrder, activeShowExpired, activeShowNA, activeMinPrice, activeMaxPrice, activeMinDate, activeMaxDate, activeCpv, activeEntity, activeCriteria, activeContractType, activeShowArchived])
 
   // Fetch ALL available CPV codes (not filtered by current data)
   useEffect(() => {
@@ -392,7 +398,8 @@ export default function HomePage() {
       activeCpv,
       activeEntity,
       activeCriteria,
-      activeContractType
+      activeContractType,
+      activeShowArchived
     )
     
     if (response.data.length === 0) {
@@ -420,6 +427,7 @@ export default function HomePage() {
     setActiveEntity(selectedEntity)
     setActiveCriteria(selectedCriteria)
     setActiveContractType(selectedContractType)
+    setActiveShowArchived(showArchived)
   }
 
   const handleUpdateExpired = async () => {
@@ -477,7 +485,66 @@ export default function HomePage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md border border-slate-300 p-6 space-y-4">
-          {/* Search box with checkboxes and update button to the right */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/*"Ver AnúnciosArquivado Button*/}
+            <Button
+              title="Filtrar por anúncios arquivados"
+              onClick={() => setShowArchived(!showArchived)}
+              className={`transition-all duration-200 ${
+                showArchived 
+                  ? 'bg-amber-300 hover:bg-amber-400 text-amber-950 border border-amber-500' 
+                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+              } shadow-sm`}
+              size="sm"
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Anúncios Arquivados
+            </Button>
+            {/* N/A Button */}
+            <Button
+              title="Filtrar por anúncios N/A"
+              onClick={() => {
+                setShowNA(!showNA)
+                if (!showNA) setShowExpired(false)
+              }}
+              className={`transition-all duration-200 ${
+                showNA
+                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground border border-primary'
+                  : 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30'
+              } shadow-sm`}
+              size="sm"
+            >
+              Anúncios N/A
+            </Button>
+            {/* Expirados Button */}
+            <Button
+              title="Filtrar por anúncios expirados"
+              onClick={() => {
+                setShowExpired(!showExpired)
+                if (!showExpired) setShowNA(false)
+              }}
+              className={`transition-all duration-200 ${
+                showExpired
+                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground border border-destructive'
+                  : 'bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/30'
+              } shadow-sm`}
+              size="sm"
+            >
+              Anúncios Expirados
+            </Button>
+            
+            <Button
+              onClick={handleUpdateExpired}
+              disabled={updatingExpired}
+              variant="outline"
+              size="sm"
+              className="text-xs border-slate-300 hover:bg-slate-100"
+            >
+              {updatingExpired ? "A atualizar..." : "Atualizar Expirados"}
+            </Button>
+          </div>
+
+          {/* Search box */}
           <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center w-full">
             <div className="flex-1 min-w-0">
               <div className="relative">
@@ -490,52 +557,6 @@ export default function HomePage() {
                   className="pl-10 bg-white border-slate-300 focus:border-slate-500 focus:ring-slate-500"
                 />
               </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="showNA" 
-                  checked={showNA}
-                  onCheckedChange={(checked) => {
-                    setShowNA(checked as boolean)
-                    if (checked) setShowExpired(false)
-                  }}
-                />
-                <label 
-                  htmlFor="showNA" 
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 whitespace-nowrap text-slate-700"
-                >
-                  Anúncios N/A
-                </label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="showExpired" 
-                  checked={showExpired}
-                  onCheckedChange={(checked) => {
-                    setShowExpired(checked as boolean)
-                    if (checked) setShowNA(false)
-                  }}
-                />
-                <label 
-                  htmlFor="showExpired" 
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 whitespace-nowrap text-slate-700"
-                >
-                  Anúncios Expirados
-                </label>
-              </div>
-              
-              <Button
-                onClick={handleUpdateExpired}
-                disabled={updatingExpired}
-                variant="outline"
-                size="sm"
-                className="text-xs border-slate-300 hover:bg-slate-100"
-              >
-                {updatingExpired ? "A atualizar..." : "Atualizar Estados"}
-              </Button>
             </div>
           </div>
 
@@ -745,12 +766,32 @@ export default function HomePage() {
             <span>
               Mostrando {filteredData.length} anúncios (de {totalCount} disponíveis)
             </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className={`h-8 w-8 p-0 ${viewMode === 'grid' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-slate-100'}`}
+                title="Vista em Grellha"
+              >
+                <LayoutGrid className={`h-4 w-4 ${viewMode === 'grid' ? 'text-white' : 'text-slate-600'}`} />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={`h-8 w-8 p-0 ${viewMode === 'list' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-slate-100'}`}
+                title="Vista em Lista"
+              >
+                <List className={`h-4 w-4 ${viewMode === 'list' ? 'text-white' : 'text-slate-600'}`} />
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'flex flex-col space-y-4'}>
           {filteredData.map((item: ProcurementItem) => (
-            <ProcurementCard key={item.id} item={item} />
+            <ProcurementCard key={item.id} item={item} viewMode={viewMode} />
           ))}
         </div>
 
