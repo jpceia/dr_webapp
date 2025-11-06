@@ -43,6 +43,7 @@ interface ProcurementItem {
 
 interface ProcurementCardProps {
   item: ProcurementItem
+  viewMode?: 'grid' | 'list'
 }
 
 function getStatusBadge(item: ProcurementItem): {
@@ -93,9 +94,72 @@ function getStatusBadge(item: ProcurementItem): {
   }
 }
 
-export function ProcurementCard({ item }: ProcurementCardProps) {
+export function ProcurementCard({ item, viewMode = 'grid' }: ProcurementCardProps) {
   const status = getStatusBadge(item)
 
+  // List view layout - single row
+  if (viewMode === 'list') {
+    return (
+      <Link href={`/procurement/${item.id}`} className="block group w-full">
+        <Card className="w-full transition-all duration-200 hover:shadow-lg border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              {/* Status Badge */}
+              <Badge variant={status.variant} className="shrink-0 text-xs whitespace-nowrap h-fit">
+                {status.text}
+              </Badge>
+
+              {/* Main Content */}
+              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                {/* Title & Entity - takes more space */}
+                <div className="md:col-span-4 min-w-0">
+                  <h3 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors truncate">
+                    {item.object_designation}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                    <Building2 className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{item.issuer}</span>
+                  </div>
+                </div>
+
+                {/* Reference & CPV */}
+                <div className="md:col-span-3 min-w-0">
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Ref:</span> {item.number}
+                  </div>
+                  {item.cpv_codes && item.cpv_codes.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      <span className="font-medium">CPV:</span> {item.cpv_codes[0]}
+                    </div>
+                  )}
+                </div>
+
+                {/* Price */}
+                <div className="md:col-span-2 flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium text-sm">{formatPrice(item.base_price)}</span>
+                </div>
+
+                {/* Dates */}
+                <div className="md:col-span-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">{formatDate(item.publication_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">{formatDate(item.application_deadline)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    )
+  }
+
+  // Grid view layout - original card design
   return (
     <Link href={`/procurement/${item.id}`} className="block group w-full">
       <Card className="h-full w-full max-w-full transition-all duration-200 hover:shadow-lg hover:scale-[1.02] border-border/50 flex flex-col">
