@@ -156,9 +156,6 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
         {/* Archive Button */}
         <ArchiveButton announcementId={announcement.id} />
 
-        {/* Notes Box */}
-        <NotesBox announcementId={announcement.id} />
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -456,6 +453,11 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
               </div>
             </SectionCard>
           </div>
+        </div>
+
+        {/* Notes Box - Moved to bottom */}
+        <div className="mt-8">
+          <NotesBox announcementId={announcement.id} />
         </div>
       </div>
     </div>
