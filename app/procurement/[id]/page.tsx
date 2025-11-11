@@ -191,6 +191,10 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                     value={announcement.object_main_cpv}
                   />
                   <InfoField 
+                    label="Todos os CPVs" 
+                    value={announcement.cpv_codes && announcement.cpv_codes.length > 0 ? announcement.cpv_codes.join(', ') : null}
+                  />
+                  <InfoField 
                     label="Tipo de Bens" 
                     value={announcement.object_type_of_goods}
                   />

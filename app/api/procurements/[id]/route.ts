@@ -36,15 +36,43 @@ function parseBoolean(value: any): boolean | null {
 }
 
 // Convert announcement record to response format
-function convertAnnouncementToResponse(announcement: any) {
+async function convertAnnouncementToResponse(announcement: any) {
+  // Fetch CPV codes for this announcement
+  const cpvs = await prisma.$queryRaw<Array<{ code: string, base_price: any }>>`
+    SELECT code, base_price
+    FROM diario_republica.cpvs 
+    WHERE announcement_id = ${parseInt(announcement.id)}
+    ORDER BY code
+  `
+  
+  // Determine base_price with priority order: processo_preco_base_valor → base_price → cpvs.base_price
+  let basePrice = null
+  
+  // First priority: processo_preco_base_valor
+  if (announcement.processo_preco_base_valor != null) {
+    basePrice = Number(announcement.processo_preco_base_valor)
+  }
+  // Second priority: base_price
+  else if (announcement.base_price != null) {
+    basePrice = Number(announcement.base_price)
+  }
+  // Third priority: cpvs.base_price
+  else if (cpvs.length > 0) {
+    const cpvWithPrice = cpvs.find(cpv => cpv.base_price != null)
+    if (cpvWithPrice) {
+      basePrice = Number(cpvWithPrice.base_price)
+    }
+  }
+  
   return {
     ...announcement,
     id: announcement.id,
     publication_date: announcement.publication_date,
     application_deadline: announcement.application_deadline,
-    base_price: announcement.base_price ? Number(announcement.base_price) : null,
+    base_price: basePrice,
     processo_preco_base_valor: announcement.processo_preco_base_valor ? Number(announcement.processo_preco_base_valor) : null,
     asset_valuation: announcement.asset_valuation ? Number(announcement.asset_valuation) : null,
+    cpv_codes: cpvs.map(cpv => cpv.code),
   }
 }
 
@@ -73,7 +101,8 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(convertAnnouncementToResponse(announcementRecord))
+    const convertedData = await convertAnnouncementToResponse(announcementRecord)
+    return NextResponse.json(convertedData)
   } catch (error) {
     console.error('Error fetching announcement:', error)
     return NextResponse.json(

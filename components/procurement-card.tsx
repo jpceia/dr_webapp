@@ -129,7 +129,7 @@ export function ProcurementCard({ item, viewMode = 'grid' }: ProcurementCardProp
                   </div>
                   {item.cpv_codes && item.cpv_codes.length > 0 && (
                     <div className="text-xs text-muted-foreground mt-1">
-                      <span className="font-medium">CPV:</span> {item.cpv_codes[0]}
+                      <span className="font-medium">CPV:</span> {item.cpv_codes.join(', ')}
                     </div>
                   )}
                 </div>
