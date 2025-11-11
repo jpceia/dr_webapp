@@ -71,10 +71,19 @@ async function convertAnnouncementToResponse(announcement: any) {
     }
   }
   
-  // Determine base_price: use announcement.base_price if available, otherwise get from cpvs table
-  let basePrice = announcement.base_price ? Number(announcement.base_price) : null
-  if (!basePrice && cpvs.length > 0) {
-    // Try to get base_price from the first CPV entry that has one
+  // Determine base_price with priority order: processo_preco_base_valor → base_price → cpvs.base_price
+  let basePrice = null
+  
+  // First priority: processo_preco_base_valor
+  if (announcement.processo_preco_base_valor != null) {
+    basePrice = Number(announcement.processo_preco_base_valor)
+  }
+  // Second priority: base_price
+  else if (announcement.base_price != null) {
+    basePrice = Number(announcement.base_price)
+  }
+  // Third priority: cpvs.base_price
+  else if (cpvs.length > 0) {
     const cpvWithPrice = cpvs.find(cpv => cpv.base_price != null)
     if (cpvWithPrice) {
       basePrice = Number(cpvWithPrice.base_price)
@@ -320,9 +329,9 @@ export async function GET(request: NextRequest) {
     // Ensure nulls are always last regardless of sort direction
     let orderBy: any[] = []
     
-    // For price sorting, we need to use raw SQL to properly handle COALESCE between announcements.base_price and cpvs.base_price
-    if (priceSortOrder !== 'none') {
-      // We'll use raw SQL for price sorting to handle the fallback logic
+    // For price sorting or filtering, we need to use raw SQL to properly handle COALESCE between processo_preco_base_valor, base_price, and cpvs.base_price
+    if (priceSortOrder !== 'none' || minPrice || maxPrice) {
+      // We'll use raw SQL for price operations to handle the three-level priority logic
       // Get all matching announcement IDs with their computed base_price
       const sortDirection = priceSortOrder === 'asc' ? 'ASC' : 'DESC'
       const dateSortDirection = dateSortOrder === 'asc' ? 'ASC' : 'DESC'
@@ -353,15 +362,27 @@ export async function GET(request: NextRequest) {
         paramIndex++
       }
       
-      // Handle price range filtering
+      // Handle price range filtering with priority: processo_preco_base_valor → base_price → cpvs.base_price
       if (minPrice) {
-        whereClauses.push(`(a.base_price >= $${paramIndex} OR (a.base_price IS NULL AND EXISTS (SELECT 1 FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price >= $${paramIndex})))`)
+        whereClauses.push(`(
+          COALESCE(
+            a.processo_preco_base_valor,
+            a.base_price,
+            (SELECT c.base_price FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price IS NOT NULL LIMIT 1)
+          ) >= $${paramIndex}
+        )`)
         params.push(parseFloat(minPrice))
         paramIndex++
       }
       
       if (maxPrice) {
-        whereClauses.push(`(a.base_price <= $${paramIndex} OR (a.base_price IS NULL AND EXISTS (SELECT 1 FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price <= $${paramIndex})))`)
+        whereClauses.push(`(
+          COALESCE(
+            a.processo_preco_base_valor,
+            a.base_price,
+            (SELECT c.base_price FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price IS NOT NULL LIMIT 1)
+          ) <= $${paramIndex}
+        )`)
         params.push(parseFloat(maxPrice))
         paramIndex++
       }
@@ -419,10 +440,11 @@ export async function GET(request: NextRequest) {
       
       const whereSQL = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
       
-      // Query with COALESCE to get base_price from either announcements or first cpv
+      // Query with COALESCE to get base_price with priority: processo_preco_base_valor → base_price → cpvs.base_price
       const querySQL = `
         SELECT DISTINCT a.*,
           COALESCE(
+            a.processo_preco_base_valor,
             a.base_price,
             (SELECT c.base_price FROM diario_republica.cpvs c WHERE c.announcement_id = a.id AND c.base_price IS NOT NULL LIMIT 1)
           ) as computed_base_price
