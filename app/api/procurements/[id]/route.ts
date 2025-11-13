@@ -18,19 +18,19 @@ function parseDecimal(value: string | null): number | null {
 // Helper function to safely parse boolean from various types
 function parseBoolean(value: any): boolean | null {
   if (value === null || value === undefined || value === '') return null
-  
+
   // If it's already a boolean, return it
   if (typeof value === 'boolean') return value
-  
+
   // If it's a number, treat 1 as true, 0 as false
   if (typeof value === 'number') return value === 1
-  
+
   // If it's a string, convert to lowercase and check
   if (typeof value === 'string') {
     const lowerValue = value.toLowerCase().trim()
     return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes'
   }
-  
+
   // For any other type, return null
   return null
 }
@@ -44,10 +44,10 @@ async function convertAnnouncementToResponse(announcement: any) {
     WHERE announcement_id = ${parseInt(announcement.id)}
     ORDER BY code
   `
-  
+
   // Determine base_price with priority order: processo_preco_base_valor → base_price → cpvs.base_price
   let basePrice = null
-  
+
   // First priority: processo_preco_base_valor
   if (announcement.processo_preco_base_valor != null) {
     basePrice = Number(announcement.processo_preco_base_valor)
@@ -63,7 +63,61 @@ async function convertAnnouncementToResponse(announcement: any) {
       basePrice = Number(cpvWithPrice.base_price)
     }
   }
-  
+
+  // Check for version links based on alterations table
+  let oldVersionLink = null
+  let newVersionLink = null
+
+  if (announcement.internal_id != null) {
+    // Check if this announcement's internal_id is in alterations.internal_id
+    // If so, get the previous_internal_id and find the old announcement
+    const newVersionAlteration = await prisma.alterations.findFirst({
+      where: {
+        internal_id: announcement.internal_id
+      }
+    })
+
+    if (newVersionAlteration && newVersionAlteration.previous_internal_id != null) {
+      // Find the old announcement with this previous_internal_id
+      const oldAnnouncement = await prisma.announcements.findFirst({
+        where: {
+          internal_id: newVersionAlteration.previous_internal_id
+        },
+        select: {
+          id: true
+        }
+      })
+
+      if (oldAnnouncement) {
+        oldVersionLink = oldAnnouncement.id
+      }
+    }
+
+    // Check if this announcement's internal_id is in alterations.previous_internal_id
+    // If so, get the internal_id and find the new announcement
+    const oldVersionAlteration = await prisma.alterations.findFirst({
+      where: {
+        previous_internal_id: announcement.internal_id
+      }
+    })
+
+    if (oldVersionAlteration && oldVersionAlteration.internal_id != null) {
+      // Find the new announcement with this internal_id
+      const newAnnouncement = await prisma.announcements.findFirst({
+        where: {
+          internal_id: oldVersionAlteration.internal_id
+        },
+        select: {
+          id: true
+        }
+      })
+
+      if (newAnnouncement) {
+        newVersionLink = newAnnouncement.id
+      }
+    }
+  }
+
   return {
     ...announcement,
     id: announcement.id,
@@ -73,6 +127,8 @@ async function convertAnnouncementToResponse(announcement: any) {
     processo_preco_base_valor: announcement.processo_preco_base_valor ? Number(announcement.processo_preco_base_valor) : null,
     asset_valuation: announcement.asset_valuation ? Number(announcement.asset_valuation) : null,
     cpv_codes: cpvs.map(cpv => cpv.code),
+    old_version_link: oldVersionLink,
+    new_version_link: newVersionLink,
   }
 }
 
@@ -82,7 +138,7 @@ export async function GET(
 ) {
   try {
     const id = parseInt(params.id)
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid procurement ID' },

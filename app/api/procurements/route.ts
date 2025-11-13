@@ -24,11 +24,11 @@ function parseBoolean(value: string | null): boolean | null {
 // Helper function to convert DD-MM-YYYY HH:MM string to Date object
 function convertStringToDate(dateString: string | null): Date | null {
   if (!dateString) return null
-  
+
   // Check if it's in DD-MM-YYYY HH:MM format
   const ddmmyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})\s(\d{2}):(\d{2})$/
   const match = dateString.match(ddmmyyyyPattern)
-  
+
   if (match) {
     const [, day, month, year, hour, minute] = match
     // Create date object (month is 0-indexed in JS)
@@ -49,14 +49,14 @@ async function convertAnnouncementToResponse(announcement: any) {
     WHERE announcement_id = ${parseInt(announcement.id)}
     ORDER BY code
   `
-  
+
   // Fetch adjudication factors for this announcement
   const adjudicationFactors = await prisma.adjudication_factors.findMany({
     where: {
       announcement_id: parseInt(announcement.id)
     }
   })
-  
+
   // Determine criteria type based on adjudication factors
   let criteriaType = 'outros' // Default to 'outros'
   if (adjudicationFactors.length > 0) {
@@ -65,15 +65,15 @@ async function convertAnnouncementToResponse(announcement: any) {
       const factorName = (factor.other_factor_name || factor.factor_name || '').toLowerCase()
       return factorName.includes('preço') || factorName.includes('preco')
     })
-    
+
     if (allPriceRelated) {
       criteriaType = 'precos'
     }
   }
-  
+
   // Determine base_price with priority order: processo_preco_base_valor → base_price → cpvs.base_price
   let basePrice = null
-  
+
   // First priority: processo_preco_base_valor
   if (announcement.processo_preco_base_valor != null) {
     basePrice = Number(announcement.processo_preco_base_valor)
@@ -89,7 +89,7 @@ async function convertAnnouncementToResponse(announcement: any) {
       basePrice = Number(cpvWithPrice.base_price)
     }
   }
-  
+
   return {
     ...announcement,
     id: announcement.id,
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
           not: null
         }
       })
-      
+
       // Add price range filtering
       if (minPrice) {
         where.AND.push({
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
           }
         })
       }
-      
+
       if (maxPrice) {
         where.AND.push({
           base_price: {
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
     if (!includeExpired) {
       // When includeExpired is false, we need to check includeNA
       where.AND = where.AND || []
-      
+
       if (includeNA) {
         // Include both active (false) and N/A (null) items
         where.AND.push({
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
     // Date range filtering (publication_date)
     if (minDate || maxDate) {
       where.AND = where.AND || []
-      
+
       if (minDate) {
         where.AND.push({
           publication_date: {
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
           }
         })
       }
-      
+
       if (maxDate) {
         // Set to end of day for maxDate
         const maxDateObj = new Date(maxDate)
@@ -235,23 +235,23 @@ export async function GET(request: NextRequest) {
       // Determine the search pattern based on trailing zeros
       // If CPV has two or more consecutive zeros at the end, search for child codes
       let searchPattern = cpv
-      
+
       // Find the position where trailing zeros start (at least 2 consecutive zeros)
       const match = cpv.match(/^(\d*?)(00+)$/)
       if (match && match[2].length >= 2) {
         // Use the non-zero prefix for pattern matching
         searchPattern = match[1] + '%'
       }
-      
+
       // Get announcement IDs that have this CPV code or a child CPV code
       const announcementsWithCpv = await prisma.$queryRaw<Array<{ announcement_id: number }>>`
         SELECT DISTINCT announcement_id 
         FROM diario_republica.cpvs 
         WHERE code ILIKE ${searchPattern}
       `
-      
+
       const announcementIds = announcementsWithCpv.map(item => item.announcement_id)
-      
+
       // Filter announcements to only include those with the selected CPV
       if (announcementIds.length > 0) {
         where.AND = where.AND || []
@@ -274,25 +274,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Filter out old announcement versions based on alterations table
-    // Exclude announcements whose internal_id appears in previous_internal_id
-    const oldVersionIds = await prisma.$queryRaw<Array<{ previous_internal_id: number }>>`
-      SELECT DISTINCT previous_internal_id 
-      FROM diario_republica.alterations 
-      WHERE previous_internal_id IS NOT NULL
-    `
-    
-    if (oldVersionIds.length > 0) {
-      const excludeInternalIds = oldVersionIds.map(item => item.previous_internal_id)
-      where.AND = where.AND || []
-      where.AND.push({
-        OR: [
-          { internal_id: null },
-          { internal_id: { notIn: excludeInternalIds } }
-        ]
-      })
-    }
-
     // Archive filtering - show only archived announcements if showArchived is true
     if (showArchived) {
       // Get announcement IDs that are archived with is_archived = true
@@ -301,9 +282,9 @@ export async function GET(request: NextRequest) {
         FROM diario_republica.archive 
         WHERE is_archived = true
       `
-      
+
       const archivedIds = archivedAnnouncements.map(item => item.announcement_id)
-      
+
       if (archivedIds.length > 0) {
         where.AND = where.AND || []
         where.AND.push({
@@ -328,40 +309,40 @@ export async function GET(request: NextRequest) {
     // Build orderBy - sort in database for efficiency
     // Ensure nulls are always last regardless of sort direction
     let orderBy: any[] = []
-    
+
     // For price sorting or filtering, we need to use raw SQL to properly handle COALESCE between processo_preco_base_valor, base_price, and cpvs.base_price
     if (priceSortOrder !== 'none' || minPrice || maxPrice) {
       // We'll use raw SQL for price operations to handle the three-level priority logic
       // Get all matching announcement IDs with their computed base_price
       const sortDirection = priceSortOrder === 'asc' ? 'ASC' : 'DESC'
       const dateSortDirection = dateSortOrder === 'asc' ? 'ASC' : 'DESC'
-      
+
       // Build WHERE clause from the Prisma where object
       let whereClauses: string[] = []
       let params: any[] = []
       let paramIndex = 1
-      
+
       // Handle search
       if (search) {
         whereClauses.push(`a.summary ILIKE $${paramIndex}`)
         params.push(`%${search}%`)
         paramIndex++
       }
-      
+
       // Handle entity filter
       if (entity && entity !== '') {
         whereClauses.push(`a.entity_designacao ILIKE $${paramIndex}`)
         params.push(`%${entity}%`)
         paramIndex++
       }
-      
+
       // Handle district filter
       if (district && district !== 'all') {
         whereClauses.push(`a.entity_distrito ILIKE $${paramIndex}`)
         params.push(`%${district}%`)
         paramIndex++
       }
-      
+
       // Handle price range filtering with priority: processo_preco_base_valor → base_price → cpvs.base_price
       if (minPrice) {
         whereClauses.push(`(
@@ -374,7 +355,7 @@ export async function GET(request: NextRequest) {
         params.push(parseFloat(minPrice))
         paramIndex++
       }
-      
+
       if (maxPrice) {
         whereClauses.push(`(
           COALESCE(
@@ -386,7 +367,7 @@ export async function GET(request: NextRequest) {
         params.push(parseFloat(maxPrice))
         paramIndex++
       }
-      
+
       // Handle expired filtering
       if (!includeExpired) {
         if (includeNA) {
@@ -397,14 +378,14 @@ export async function GET(request: NextRequest) {
       } else {
         whereClauses.push(`a.expired = true`)
       }
-      
+
       // Handle date range filtering
       if (minDate) {
         whereClauses.push(`a.publication_date >= $${paramIndex}`)
         params.push(new Date(minDate))
         paramIndex++
       }
-      
+
       if (maxDate) {
         const maxDateObj = new Date(maxDate)
         maxDateObj.setHours(23, 59, 59, 999)
@@ -412,14 +393,14 @@ export async function GET(request: NextRequest) {
         params.push(maxDateObj)
         paramIndex++
       }
-      
+
       // Handle contract type filtering
       if (contractType && contractType !== 'all') {
         whereClauses.push(`a.object_main_contract_type = $${paramIndex}`)
         params.push(contractType)
         paramIndex++
       }
-      
+
       // Handle CPV filtering
       if (cpv && cpv !== 'all') {
         let searchPattern = cpv
@@ -431,15 +412,9 @@ export async function GET(request: NextRequest) {
         params.push(searchPattern)
         paramIndex++
       }
-      
-      // Handle old versions filtering
-      if (oldVersionIds.length > 0) {
-        const excludeInternalIds = oldVersionIds.map(item => item.previous_internal_id)
-        whereClauses.push(`(a.internal_id IS NULL OR a.internal_id NOT IN (${excludeInternalIds.join(', ')}))`)
-      }
-      
+
       const whereSQL = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : ''
-      
+
       // Query with COALESCE to get base_price with priority: processo_preco_base_valor → base_price → cpvs.base_price
       const querySQL = `
         SELECT DISTINCT a.*,
@@ -453,30 +428,30 @@ export async function GET(request: NextRequest) {
         ORDER BY computed_base_price ${sortDirection} NULLS LAST, a.publication_date ${dateSortDirection} NULLS LAST
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `
-      
+
       const sortedAnnouncements = await prisma.$queryRawUnsafe<Array<any>>(querySQL, ...params, limit, offset)
-      
+
       // Get total count
       const countSQL = `
         SELECT COUNT(DISTINCT a.id) as count
         FROM diario_republica.announcements a
         ${whereSQL}
       `
-      
+
       const totalResult = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(countSQL, ...params)
-      
+
       const total = Number(totalResult[0].count)
-      
+
       // Convert announcement records to response format
       let convertedData = await Promise.all(sortedAnnouncements.map(announcement => convertAnnouncementToResponse(announcement)))
-      
+
       // Client-side filtering for criteria type
       if (criteria && criteria === 'precos') {
-        convertedData = convertedData.filter(item => 
+        convertedData = convertedData.filter(item =>
           item.criteria_type === 'precos'
         )
       }
-      
+
       return NextResponse.json({
         data: convertedData,
         pagination: {
@@ -487,7 +462,7 @@ export async function GET(request: NextRequest) {
         }
       })
     }
-    
+
     // For date-only sorting, use Prisma
     orderBy.push({ publication_date: { sort: dateSortOrder, nulls: 'last' } })
 
@@ -506,7 +481,7 @@ export async function GET(request: NextRequest) {
 
     // Client-side filtering for criteria type (since it's computed based on adjudication_factors)
     if (criteria && criteria === 'precos') {
-      convertedData = convertedData.filter(item => 
+      convertedData = convertedData.filter(item =>
         item.criteria_type === 'precos'
       )
     }
@@ -532,7 +507,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    
+
     const announcementRecord = await prisma.announcements.create({
       data: body
     })

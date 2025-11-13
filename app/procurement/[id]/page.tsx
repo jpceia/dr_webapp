@@ -4,17 +4,17 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ArchiveButton } from "@/components/archive-button"
 import { NotesBox } from "@/components/notes-box"
-import { 
-  ArrowLeft, 
-  FileText, 
-  Building, 
-  Calendar, 
-  Clock, 
-  Euro, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Globe, 
+import {
+  ArrowLeft,
+  FileText,
+  Building,
+  Calendar,
+  Clock,
+  Euro,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
   User,
   FileCheck,
   AlertCircle,
@@ -54,11 +54,11 @@ async function getAdjudicationFactors(id: string) {
 // Group adjudication factors by factor name and other_factor_name combination
 function groupAdjudicationFactors(factors: any[]) {
   const grouped = new Map<string, any>()
-  
+
   factors.forEach((factor) => {
     // Create a unique key combining both factor_name and other_factor_name
     const key = `${factor.factor_name || ''}_${factor.other_factor_name || ''}`
-    
+
     if (!grouped.has(key)) {
       // First occurrence of this factor
       grouped.set(key, {
@@ -68,7 +68,7 @@ function groupAdjudicationFactors(factors: any[]) {
         subfactors: []
       })
     }
-    
+
     // Add subfactor if it exists
     if (factor.subfactor_name) {
       grouped.get(key)!.subfactors.push({
@@ -77,13 +77,13 @@ function groupAdjudicationFactors(factors: any[]) {
       })
     }
   })
-  
+
   return Array.from(grouped.values())
 }
 
 function InfoField({ label, value, icon: Icon }: { label: string; value: any; icon?: any }) {
   if (!value || value === 'N/A' || value === '') return null
-  
+
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -116,12 +116,12 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
     getAnnouncement(params.id),
     getAdjudicationFactors(params.id)
   ])
-  
+
   // Group adjudication factors by factor name
-  const groupedFactors = adjudicationFactors.length > 0 
+  const groupedFactors = adjudicationFactors.length > 0
     ? groupAdjudicationFactors(adjudicationFactors)
     : []
-  
+
   if (!announcement) {
     notFound()
   }
@@ -146,12 +146,38 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                 <p className="text-sm text-slate-600">
                   Processo nº {announcement.number || announcement.id}
                 </p>
+                {/* Version links */}
+                {announcement.new_version_link && (
+                  <h2 className="mt-5">
+                    <span className="text-l text-green-700">
+                      <b>ATENÇÃO:</b> Anúncio Atualizado em {' '}
+                    </span>
+                    <Link
+                      href={`/procurement/${announcement.new_version_link}`}
+                    >
+                      <span className="text-l font-bold underline text-blue-600 mt-1">
+                        {`/procurement/${announcement.new_version_link}`}
+                      </span>
+                    </Link>
+                  </h2>
+                )}
+                {announcement.old_version_link && (
+                  <p className="text-sm text-blue-400 mt-3">
+                    (Este anúncio é uma versão atualizada de: {' '}
+                    <Link
+                      href={`/procurement/${announcement.old_version_link}`}
+                      className="underline hover:text-blue-400"
+                    >
+                      {`/procurement/${announcement.old_version_link}`})
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Archive Button */}
         <ArchiveButton announcementId={announcement.id} />
@@ -159,16 +185,16 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* Object Description */}
             <SectionCard title="Descrição do Objeto" icon={FileText}>
               <div className="space-y-4">
-                <InfoField 
-                  label="Resumo" 
+                <InfoField
+                  label="Resumo"
                   value={announcement.summary}
                 />
-                <InfoField 
-                  label="Referência Interna" 
+                <InfoField
+                  label="Referência Interna"
                   value={announcement.object_internal_ref}
                 />
               </div>
@@ -178,44 +204,44 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
             <SectionCard title="Detalhes do Contrato" icon={FileCheck}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <InfoField 
-                    label="Tipo de Contrato Principal" 
+                  <InfoField
+                    label="Tipo de Contrato Principal"
                     value={announcement.object_main_contract_type}
                   />
-                  <InfoField 
-                    label="Tipo de Contrato" 
+                  <InfoField
+                    label="Tipo de Contrato"
                     value={announcement.object_contract_type}
                   />
-                  <InfoField 
-                    label="CPV Principal" 
+                  <InfoField
+                    label="CPV Principal"
                     value={announcement.object_main_cpv}
                   />
-                  <InfoField 
-                    label="Todos os CPVs" 
+                  <InfoField
+                    label="Todos os CPVs"
                     value={announcement.cpv_codes && announcement.cpv_codes.length > 0 ? announcement.cpv_codes.join(', ') : null}
                   />
-                  <InfoField 
-                    label="Tipo de Bens" 
+                  <InfoField
+                    label="Tipo de Bens"
                     value={announcement.object_type_of_goods}
                   />
                 </div>
                 <div className="space-y-4">
-                  <InfoField 
-                    label="Preço Base" 
+                  <InfoField
+                    label="Preço Base"
                     value={formatPrice(announcement.base_price)}
                     icon={Euro}
                   />
-                  <InfoField 
-                    label="Avaliação de Ativos" 
+                  <InfoField
+                    label="Avaliação de Ativos"
                     value={formatPrice(announcement.asset_valuation)}
                     icon={Euro}
                   />
-                  <InfoField 
-                    label="Tem Lotes" 
+                  <InfoField
+                    label="Tem Lotes"
                     value={announcement.has_lots === 'true' ? 'Sim' : 'Não'}
                   />
-                  <InfoField 
-                    label="Máx. Lotes Autorizados" 
+                  <InfoField
+                    label="Máx. Lotes Autorizados"
                     value={announcement.processo_max_lotes_autorizado}
                   />
                 </div>
@@ -226,41 +252,41 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
             <SectionCard title="Informações do Processo" icon={AlertCircle}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <InfoField 
-                    label="Tipo de Processo" 
+                  <InfoField
+                    label="Tipo de Processo"
                     value={announcement.processo_tipo}
                   />
-                  <InfoField 
-                    label="Modelo de Aviso" 
+                  <InfoField
+                    label="Modelo de Aviso"
                     value={announcement.aviso_modelo}
                   />
-                  <InfoField 
-                    label="Plataforma de Candidatura" 
+                  <InfoField
+                    label="Plataforma de Candidatura"
                     value={announcement.application_platform}
                   />
-                  <InfoField 
-                    label="Legislação Aplicável" 
+                  <InfoField
+                    label="Legislação Aplicável"
                     value={announcement.applicable_legislation}
                   />
                 </div>
                 <div className="space-y-4">
-                  <InfoField 
-                    label="Data de Publicação" 
+                  <InfoField
+                    label="Data de Publicação"
                     value={formatDate(announcement.publication_date)}
                     icon={Calendar}
                   />
-                  <InfoField 
-                    label="Prazo de Candidatura" 
+                  <InfoField
+                    label="Prazo de Candidatura"
                     value={formatDate(announcement.application_deadline)}
                     icon={Clock}
                   />
-                  <InfoField 
-                    label="Data de Envio do Aviso" 
+                  <InfoField
+                    label="Data de Envio do Aviso"
                     value={formatDate(announcement.aviso_data_envio)}
                     icon={Calendar}
                   />
-                  <InfoField 
-                    label="Publicado no Jornal UE" 
+                  <InfoField
+                    label="Publicado no Jornal UE"
                     value={announcement.in_ue_journal ? 'Sim' : 'Não'}
                   />
                 </div>
@@ -286,7 +312,7 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                         <tbody>
                           {groupedFactors.map((factor: any, factorIndex: number) => {
                             const hasSubfactors = factor.subfactors && factor.subfactors.length > 0
-                            
+
                             if (!hasSubfactors) {
                               // Factor without subfactors - single row
                               return (
@@ -301,26 +327,26 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                                 </tr>
                               )
                             }
-                            
+
                             // Factor with subfactors - multiple rows with rowspan
                             return factor.subfactors.map((subfactor: any, subfactorIndex: number) => (
                               <tr key={`${factorIndex}-${subfactorIndex}`} className="hover:bg-muted/50">
                                 {subfactorIndex === 0 && (
                                   <>
-                                    <td 
-                                      className="border border-border p-2" 
+                                    <td
+                                      className="border border-border p-2"
                                       rowSpan={factor.subfactors.length}
                                     >
                                       {factor.factorName || '-'}
                                     </td>
-                                    <td 
-                                      className="border border-border p-2" 
+                                    <td
+                                      className="border border-border p-2"
                                       rowSpan={factor.subfactors.length}
                                     >
                                       {factor.otherFactorName || '-'}
                                     </td>
-                                    <td 
-                                      className="border border-border p-2" 
+                                    <td
+                                      className="border border-border p-2"
                                       rowSpan={factor.subfactors.length}
                                     >
                                       {factor.factorPercentage != null ? `${factor.factorPercentage}%` : '-'}
@@ -383,45 +409,45 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
               </SectionCard>
             )}
           </div>
-          
+
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Entity Information */}
             <SectionCard title="Entidade Adjudicante" icon={Building}>
               <div className="space-y-4">
-                <InfoField 
-                  label="Designação" 
+                <InfoField
+                  label="Designação"
                   value={announcement.entity_designacao || announcement.issuer}
                 />
-                <InfoField 
-                  label="NIPC" 
+                <InfoField
+                  label="NIPC"
                   value={announcement.entity_nipc}
                 />
-                <InfoField 
-                  label="Área de Atividade" 
+                <InfoField
+                  label="Área de Atividade"
                   value={announcement.entity_area_atividade}
                 />
-                <InfoField 
-                  label="Função da Organização" 
+                <InfoField
+                  label="Função da Organização"
                   value={announcement.entity_funcao_organizacao}
                 />
-                <InfoField 
-                  label="Subfunção da Organização" 
+                <InfoField
+                  label="Subfunção da Organização"
                   value={announcement.entity_subfuncao_organizacao}
                 />
-                <InfoField 
-                  label="Norma Jurídica" 
+                <InfoField
+                  label="Norma Jurídica"
                   value={announcement.entity_norma_juridica}
                 />
-                <InfoField 
-                  label="Serviço de Contacto" 
+                <InfoField
+                  label="Serviço de Contacto"
                   value={announcement.entity_servico_contacto}
                 />
-                
+
                 <Separator />
-                
-                <InfoField 
-                  label="Endereço" 
+
+                <InfoField
+                  label="Endereço"
                   value={[
                     announcement.entity_endereco,
                     announcement.entity_distrito,
@@ -431,26 +457,26 @@ export default async function ProcurementDetailPage({ params }: { params: { id: 
                   ].filter(Boolean).join(', ')}
                   icon={MapPin}
                 />
-                
+
                 <Separator />
-                
-                <InfoField 
-                  label="Telefone" 
+
+                <InfoField
+                  label="Telefone"
                   value={announcement.entity_telefone}
                   icon={Phone}
                 />
-                <InfoField 
-                  label="Fax" 
+                <InfoField
+                  label="Fax"
                   value={announcement.entity_fax}
                   icon={Phone}
                 />
-                <InfoField 
-                  label="Email" 
+                <InfoField
+                  label="Email"
                   value={announcement.entity_email}
                   icon={Mail}
                 />
-                <InfoField 
-                  label="Website" 
+                <InfoField
+                  label="Website"
                   value={announcement.entity_url}
                   icon={Globe}
                 />
